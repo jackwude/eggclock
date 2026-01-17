@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>蒸蛋倒计时助手</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 React 和 ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- 引入 Babel 用于解析 JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body {
+            background-color: #f8fafc;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- 食物数据配置 ---
+        const FOOD_LIST = [
+            { id: 'egg', name: '蒸蛋', emoji: '🥚', duration: 25 },
+            { id: 'soymilk', name: '豆浆', emoji: '�', duration: 20 },
+        ];
+
+        // --- 图标组件 (SVG) ---
+        // 修复：将 width/height="24" 改为 className="w-full h-full"，让图标自适应父容器大小
+        const ClockIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+        );
+        const ChefHatIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" /><line x1="6" y1="17" x2="18" y2="17" /></svg>
+        );
+        const InfoIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+        );
+        const RotateCcwIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
+        );
+        const SunriseIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v8" /><path d="m4.93 10.93 1.41 1.41" /><path d="M2 18h2" /><path d="M20 18h2" /><path d="m19.07 10.93-1.41 1.41" /><path d="M22 22H2" /><path d="m8 6 4-4 4 4" /><path d="M16 18a4 4 0 0 0-8 0" /></svg>
+        );
+        const CheckCircleIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+        );
+        const UtensilsIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-full h-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" /><path d="M7 2v20" /><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" /></svg>
+        );
+
+        function App() {
+            const [currentTime, setCurrentTime] = useState(new Date());
+            const [targetHour, setTargetHour] = useState(7);
+            const [targetMinute, setTargetMinute] = useState(30);
+            const [selectedFood, setSelectedFood] = useState(FOOD_LIST[0]);
+            const [cookDuration, setCookDuration] = useState(FOOD_LIST[0].duration);
+
+            // 选择食物时自动更新烹饪时长
+            const handleFoodSelect = (food) => {
+                setSelectedFood(food);
+                setCookDuration(food.duration);
+            };
+
+            useEffect(() => {
+                const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+                return () => clearInterval(timer);
+            }, []);
+
+            const calculateSetting = () => {
+                const targetTime = new Date(currentTime);
+                targetTime.setDate(currentTime.getDate() + 1);
+                targetTime.setHours(targetHour, targetMinute, 0, 0);
+
+                const startCookingTime = new Date(targetTime.getTime() - cookDuration * 60000);
+                let diffMs = startCookingTime - currentTime;
+
+                if (diffMs < 0) return { recommended: 0, actualReadyTime: null };
+
+                const diffHours = diffMs / (1000 * 60 * 60);
+
+                // 核心逻辑：向下取整到 0.5 小时
+                let recommendedSetting = Math.floor(diffHours * 2) / 2;
+                if (recommendedSetting < 0) recommendedSetting = 0;
+
+                const actualStartTime = new Date(currentTime.getTime() + recommendedSetting * 60 * 60 * 1000);
+                const actualReadyTime = new Date(actualStartTime.getTime() + cookDuration * 60000);
+
+                return {
+                    recommended: recommendedSetting.toFixed(1),
+                    actualReadyTime: actualReadyTime
+                };
+            };
+
+            const result = calculateSetting();
+
+            const formatTime = (date) => {
+                if (!date) return "--:--";
+                return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+            };
+
+            // 根据小时返回对应的时段描述
+            const getTimePeriod = (hour) => {
+                if (hour >= 0 && hour < 6) return '凌晨';
+                if (hour >= 6 && hour < 12) return '早上';
+                if (hour >= 12 && hour < 14) return '中午';
+                if (hour >= 14 && hour < 18) return '下午';
+                return '晚上';
+            };
+
+            const timePeriodLabel = getTimePeriod(targetHour);
+
+            return (
+                <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans text-slate-800">
+                    <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
+
+                        {/* 头部区域 */}
+                        <div className="bg-blue-600 p-6 text-white">
+                            <div className="flex items-center justify-between mb-4">
+                                <h1 className="text-xl font-bold flex items-center gap-2">
+                                    {/* 图标容器 w-6 h-6 (24px) */}
+                                    <div className="w-6 h-6"><ChefHatIcon /></div>
+                                    蒸蛋倒计时助手
+                                </h1>
+                                <div className="flex items-center gap-1.5 bg-blue-500/50 px-3 py-1 rounded-full text-sm backdrop-blur-sm border border-blue-400/30">
+                                    {/* 图标容器 w-3.5 h-3.5 (14px) - 微调大小和间距 */}
+                                    <div className="w-3.5 h-3.5 shrink-0"><ClockIcon /></div>
+                                    <span className="font-medium tracking-wide font-mono">当前 {formatTime(currentTime)}</span>
+                                </div>
+                            </div>
+
+                            {/* 结果展示 */}
+                            <div className="text-center py-4 bg-white/10 rounded-xl backdrop-blur-sm">
+                                <p className="text-blue-100 text-sm mb-1">电蒸锅倒计时建议设定为</p>
+                                <div className="text-5xl font-mono font-bold tracking-tight text-white mb-2">
+                                    {result.recommended}<span className="text-2xl ml-1">小时</span>
+                                </div>
+                                <div className="text-xs text-blue-100 bg-blue-800/30 inline-block px-3 py-1 rounded-full">
+                                    ( 即 {Math.floor(result.recommended)} 小时 {result.recommended % 1 !== 0 ? '30' : '00'} 分 )
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 结果详情 */}
+                        <div className="p-6 bg-blue-50/50 border-b border-blue-100">
+                            <div className="flex items-start gap-3">
+                                <div className="w-5 h-5 text-green-600 mt-0.5"><CheckCircleIcon /></div>
+                                <div>
+                                    <p className="text-sm text-slate-600 mb-1">预期结果：</p>
+                                    <p className="text-slate-900 font-medium">
+                                        将在明天{timePeriodLabel} <span className="text-blue-700 font-bold text-lg">{formatTime(result.actualReadyTime)}</span> 蒸熟
+                                    </p>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        比目标早 {result.actualReadyTime ? ((new Date(currentTime).setHours(targetHour, targetMinute) + 24 * 60 * 60 * 1000 - result.actualReadyTime) / 60000).toFixed(0) : 0} 分钟完成，保温正好。
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 设置区域 */}
+                        <div className="p-6 space-y-6">
+                            {/* 食物选择 */}
+                            <div>
+                                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
+                                    <div className="w-4 h-4 text-amber-500"><UtensilsIcon /></div>
+                                    选择要蒸的食物
+                                </label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {FOOD_LIST.map((food) => (
+                                        <button
+                                            key={food.id}
+                                            onClick={() => handleFoodSelect(food)}
+                                            className={`p-3 rounded-xl transition-all text-center ${selectedFood.id === food.id
+                                                ? 'bg-blue-100 border-2 border-blue-500 shadow-md'
+                                                : 'bg-slate-50 border-2 border-transparent hover:bg-slate-100'
+                                                }`}
+                                        >
+                                            <div className="text-2xl mb-1">{food.emoji}</div>
+                                            <div className={`text-xs font-medium ${selectedFood.id === food.id ? 'text-blue-700' : 'text-slate-600'
+                                                }`}>{food.name}</div>
+                                            <div className="text-[10px] text-slate-400">{food.duration}分钟</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
+                                    <div className="w-4 h-4 text-orange-500"><SunriseIcon /></div>
+                                    明天{timePeriodLabel}想几点吃？
+                                </label>
+                                <div className="flex gap-2">
+                                    <select
+                                        value={targetHour}
+                                        onChange={(e) => setTargetHour(Number(e.target.value))}
+                                        className="flex-1 p-3 bg-slate-100 rounded-lg border-transparent focus:border-blue-500 focus:bg-white focus:ring-0 transition-all font-mono text-lg text-center appearance-none"
+                                    >
+                                        {Array.from({ length: 24 }, (_, i) => (
+                                            <option key={i} value={i}>{String(i).padStart(2, '0')}点</option>
+                                        ))}
+                                    </select>
+                                    <span className="self-center text-slate-400 font-bold">:</span>
+                                    <select
+                                        value={targetMinute}
+                                        onChange={(e) => setTargetMinute(Number(e.target.value))}
+                                        className="flex-1 p-3 bg-slate-100 rounded-lg border-transparent focus:border-blue-500 focus:bg-white focus:ring-0 transition-all font-mono text-lg text-center appearance-none"
+                                    >
+                                        <option value={0}>00分</option>
+                                        <option value={15}>15分</option>
+                                        <option value={30}>30分</option>
+                                        <option value={45}>45分</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
+                                    <div className="w-4 h-4 text-slate-500"><RotateCcwIcon /></div>
+                                    蒸熟需要多久？(分钟)
+                                </label>
+                                <input
+                                    type="range"
+                                    min="10"
+                                    max="60"
+                                    step="5"
+                                    value={cookDuration}
+                                    onChange={(e) => setCookDuration(Number(e.target.value))}
+                                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                                />
+                                <div className="flex justify-between text-xs text-slate-400 mt-2 font-mono">
+                                    <span>10m</span>
+                                    <span className="text-blue-600 font-bold text-sm">{cookDuration} 分钟</span>
+                                    <span>60m</span>
+                                </div>
+                            </div>
+
+                            <div className="bg-amber-50 rounded-lg p-3 flex gap-3 items-start text-xs text-amber-800 border border-amber-100">
+                                <div className="w-4 h-4 shrink-0 mt-0.5"><InfoIcon /></div>
+                                <p>系统会自动向下取整到 0.5h，宁愿早熟保温，也不晚熟迟到。</p>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
